@@ -138,6 +138,12 @@ void testfn(void)
 
 int do_load_serial_bin (ulong offset, int baudrate)
 { // add testing code here
+	int i=0;
+	while(0)
+		{
+		printf("hello world\n");
+	//	testfn();
+		}
 	while(1) {
 		char *c;
 		int argc=0;
