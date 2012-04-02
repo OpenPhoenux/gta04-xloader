@@ -168,6 +168,18 @@ void testfn(void)
 int do_comand_line(void)
 { // add testing code here
 	printf ("Welcome to uart-loader\n");
+	printf ("  c - run test code in RAM\n");
+	printf ("  x [addr] - execute\n");
+	printf ("  l - loop hello world\n");
+	printf ("  ram - fill ram with data pattern\n");
+	printf ("  a addr - set address\n");
+	printf ("  r [size] - read bytes\n");
+	printf ("  rl [size] - read long words\n");
+	printf ("  f [value [size]] - write bytes\n");
+	printf ("  bl - blink backlight\n");
+	printf ("  g - show GPIOs\n");
+	printf ("  m - show PinMux\n");
+	return 0;
 	while(1) {
 		char *c;
 		int argc=0;
@@ -190,7 +202,7 @@ int do_comand_line(void)
 					break;	// command
 				default:
 					if(pos < sizeof(line)/sizeof(line[0])) {
-						putc(line[pos]);
+						putc(line[pos]);	// echo
 						pos++;
 					}
 					continue;
@@ -234,7 +246,7 @@ int do_comand_line(void)
 		else if(strcmp(argv[0], "l") == 0) { // l - loop
 			int d=1;
 			while(1)
-				printf ("Welcome to uart-monitor (%d)\n", d++), udelay(500*1000);
+				printf ("Welcome to uart-loader (%d)\n", d++), udelay(500*1000);
 		}
 		else if(strcmp(argv[0], "ram") == 0) {
 			int val=0x55;
