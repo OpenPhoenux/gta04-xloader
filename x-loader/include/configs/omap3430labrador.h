@@ -27,6 +27,10 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
+/* configure for GTA04 with DM3730 */
+#define CONFIG_OMAP36XX			 1	  /* or 36XX (DM3730) */
+#define PRCM_CLK_CFG2_400MHZ     1
+
 /* serial printf facility takes about 3.5K */
 #define CFG_PRINTF 
 //#undef CFG_PRINTF 

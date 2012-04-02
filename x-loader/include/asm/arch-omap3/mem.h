@@ -46,6 +46,7 @@ typedef enum {
 #define MMC_NAND            4
 #define MMC_ONENAND         5
 #define GPMC_NONE           6
+#define GPMC_ONENAND_TRY    7
 
 #endif
 
@@ -71,7 +72,9 @@ typedef enum {
 #define SDP_SDRC_MDCFG_0_DDR	(0x02582019|B_ALL) /* Infin ddr module */
 #else
 #define SDP_SDRC_MDCFG_0_DDR	(0x02584019|B_ALL)
-#define SDP_SDRC_MDCFG_0_DDR_XM	(0x03588019|B_ALL)
+#define SDP_SDRC_MDCFG_0_DDR_MICRON_XM	(0x03588019|B_ALL)
+#define SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM	(0x04590019|B_ALL)
+#define SDP_SDRC_MDCFG_0_DDR_HYNIX	(0x03588019|B_ALL)
 #endif
 
 #define SDP_SDRC_MR_0_DDR		0x00000032
@@ -252,11 +255,86 @@ typedef enum {
 		(MICRON_TDPL_200 << 6) | (MICRON_TDAL_200))
 
 #define MICRON_TWTR_200   2
-#define MICRON_TCKE_200   1
+#define MICRON_TCKE_200   4
 #define MICRON_TXP_200    2
 #define MICRON_XSR_200   23
 #define MICRON_V_ACTIMB_200 ((MICRON_TCKE_200 << 12) | (MICRON_XSR_200 << 0)) | \
 				(MICRON_TXP_200 << 8) | (MICRON_TWTR_200 << 16)
+
+/* NUMONYX part of IGEP0020 (165MHz optimized) 6.06ns
+ *   ACTIMA
+ *      TDAL = Twr/Tck + Trp/tck = 15/6 + 18/6 = 2.5 + 3 = 5.5 -> 6
+ *      TDPL (Twr) = 15/6 = 2.5 -> 3
+ *      TRRD = 12/6 = 2
+ *      TRCD = 22.5/6 = 3.75 -> 4
+ *      TRP  = 18/6 = 3
+ *      TRAS = 42/6 = 7
+ *      TRC  = 60/6 = 10
+ *      TRFC = 140/6 = 23.3 -> 24
+ *   ACTIMB
+ *	TWTR = 2
+ *	TCKE = 2
+ *	TXSR = 200/6 =  33.3 -> 34
+ *	TXP  = 1.0 + 1.1 = 2.1 -> 3 ¿?
+ */
+#define NUMONYX_TDAL_165   6
+#define NUMONYX_TDPL_165   3
+#define NUMONYX_TRRD_165   2
+#define NUMONYX_TRCD_165   4
+#define NUMONYX_TRP_165    3
+#define NUMONYX_TRAS_165   7
+#define NUMONYX_TRC_165   10
+#define NUMONYX_TRFC_165  24
+#define NUMONYX_V_ACTIMA_165 ((NUMONYX_TRFC_165 << 27) | (NUMONYX_TRC_165 << 22) | (NUMONYX_TRAS_165 << 18) \
+		| (NUMONYX_TRP_165 << 15) | (NUMONYX_TRCD_165 << 12) |(NUMONYX_TRRD_165 << 9) | \
+		(NUMONYX_TDPL_165 << 6) | (NUMONYX_TDAL_165))
+
+#define NUMONYX_TWTR_165   2
+#define NUMONYX_TCKE_165   2
+#define NUMONYX_TXP_165    3
+#define NUMONYX_XSR_165    34
+#define NUMONYX_V_ACTIMB_165 ((NUMONYX_TCKE_165 << 12) | (NUMONYX_XSR_165 << 0)) | \
+				(NUMONYX_TXP_165 << 8) | (NUMONYX_TWTR_165 << 16)
+
+/*
+ * Hynix part of Overo (165MHz optimized) 6.06ns
+ *   ACTIMA
+ *     ACTIMA
+ *        TDAL = Twr/Tck + Trp/tck = 15/6 + 18/6 = 2.5 + 3 = 5.5 -> 6
+ *        TDPL (Twr) = 15/6       = 2.5 -> 3
+ *        TRRD = 12/6     = 2
+ *        TRCD = 18/6     = 3
+ *        TRP = 18/6      = 3
+ *        TRAS = 42/6     = 7
+ *        TRC = 60/6      = 10
+ *        TRFC = 97.5/6    = 17
+ *     ACTIMB
+ *        TWTR = 1
+ *        TCKE = 1
+ *        TXP = 1+1
+ *        XSR = 140/6 = 24
+ */
+#define HYNIX_TDAL_165   6
+#define HYNIX_TDPL_165   3
+#define HYNIX_TRRD_165   2
+#define HYNIX_TRCD_165   3
+#define HYNIX_TRP_165    3
+#define HYNIX_TRAS_165   7
+#define HYNIX_TRC_165   10
+#define HYNIX_TRFC_165  21
+#define HYNIX_V_ACTIMA_165 ((HYNIX_TRFC_165 << 27) | \
+		(HYNIX_TRC_165 << 22) | (HYNIX_TRAS_165 << 18) | \
+		(HYNIX_TRP_165 << 15) | (HYNIX_TRCD_165 << 12) | \
+		(HYNIX_TRRD_165 << 9) | (HYNIX_TDPL_165 << 6) | \
+		(HYNIX_TDAL_165))
+
+#define HYNIX_TWTR_165   1
+#define HYNIX_TCKE_165   1
+#define HYNIX_TXP_165    2
+#define HYNIX_XSR_165    24
+#define HYNIX_V_ACTIMB_165 ((HYNIX_TCKE_165 << 12) | \
+		(HYNIX_XSR_165 << 0) | (HYNIX_TXP_165 << 8) | \
+		(HYNIX_TWTR_165 << 16))
 
 /* New and compatability speed defines */
 #if defined(PRCM_CLK_CFG2_200MHZ) || defined(PRCM_CONFIG_II) || defined(PRCM_CONFIG_5B)
@@ -276,6 +354,8 @@ typedef enum {
 #elif  defined(L3_165MHZ)
 # define MICRON_SDRC_ACTIM_CTRLA_0     MICRON_V_ACTIMA_165
 # define MICRON_SDRC_ACTIM_CTRLB_0     MICRON_V_ACTIMB_165
+# define NUMONYX_SDRC_ACTIM_CTRLA_0    NUMONYX_V_ACTIMA_165
+# define NUMONYX_SDRC_ACTIM_CTRLB_0    NUMONYX_V_ACTIMB_165
 #endif
 
 

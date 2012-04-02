@@ -42,6 +42,7 @@
  */
 #define MT29F1G_MFR		0x2c  /* Micron */
 #define MT29F1G_MFR2		0x20  /* numonyx */
+#define MT29F1G_MFR3		0xad  /* Hynix */
 #define MT29F1G_ID		0xa1  /* x8, 1GiB */
 #define MT29F2G_ID      	0xba  /* x16, 2GiB */
 #define MT29F4G_ID		0xbc  /* x16, 4GiB */
@@ -154,6 +155,29 @@ static int NanD_Address(unsigned int numbytes, unsigned long ofs)
 	return 0;
 }
 
+int nand_readid(int *mfr, int *id)
+{
+	NAND_ENABLE_CE();
+
+	if (NanD_Command(NAND_CMD_RESET)) {
+		NAND_DISABLE_CE();
+		return 1;
+	}
+ 
+	if (NanD_Command(NAND_CMD_READID)) {
+		NAND_DISABLE_CE();
+		return 1;
+	}
+ 
+	NanD_Address(ADDR_COLUMN, 0);
+
+	*mfr = READ_NAND(NAND_ADDR);
+	*id = READ_NAND(NAND_ADDR);
+
+	NAND_DISABLE_CE();
+	return 0;
+}
+
 /* read chip mfr and id
  * return 0 if they match board config
  * return 1 if not
@@ -162,34 +186,39 @@ int nand_chip()
 {
 	int mfr, id;
 
- 	NAND_ENABLE_CE();
+	NAND_ENABLE_CE();
 
- 	if (NanD_Command(NAND_CMD_RESET)) {
- 		printf("Err: RESET\n");
- 		NAND_DISABLE_CE();   
+	if (NanD_Command(NAND_CMD_RESET)) {
+		printf("Err: RESET\n");
+		NAND_DISABLE_CE();   
 		return 1;
 	}
  
- 	if (NanD_Command(NAND_CMD_READID)) {
- 		printf("Err: READID\n");
- 		NAND_DISABLE_CE();
+	if (NanD_Command(NAND_CMD_READID)) {
+		printf("Err: READID\n");
+		NAND_DISABLE_CE();
 		return 1;
- 	}
+	}
  
- 	NanD_Address(ADDR_COLUMN, 0);
+	NanD_Address(ADDR_COLUMN, 0);
 
- 	mfr = READ_NAND(NAND_ADDR);
+	mfr = READ_NAND(NAND_ADDR);
 	id = READ_NAND(NAND_ADDR);
 
 	NAND_DISABLE_CE();
 
-	if (((mfr == MT29F1G_MFR || mfr == MT29F1G_MFR2) &&
+	if (((mfr == MT29F1G_MFR || mfr == MT29F1G_MFR2 || mfr == MT29F1G_MFR3) &&
 		(id == MT29F1G_ID || id == MT29F2G_ID || id == MT29F4G_ID)) ||
 	     (mfr == K9F1G08R0A_MFR && (id == K9F1G08R0A_ID))) {
 		return 0;
 	} else {
-		printf("Unknown chip: mfr was 0x%02x, id was 0x%02x\n", mfr, id);
-		return 1;
+		if ((mfr == 0) && (id == 0)) {
+			printf("No NAND detected\n");
+			return 0;
+		} else {
+			printf("Unknown chip: mfr was 0x%02x, id was 0x%02x\n", mfr, id);
+			return 1;
+		}
 	}
 }
 
