@@ -317,6 +317,15 @@ get_fatent(fsdata *mydata, __u32 entry)
 	return ret;
 }
 
+static int memcmp(__u8 *p1, __u8 *p2, unsigned long len)
+{
+	while(len-- > 0) {
+		__u8 diff=(*p1++ - *p2++);
+		if(diff)
+			return diff;
+	}
+	return 0;	// equal
+}
 
 /*
  * Read at most 'size' bytes from the specified cluster into 'buffer'.
@@ -327,6 +336,7 @@ get_cluster(fsdata *mydata, __u32 clustnum, __u8 *buffer, unsigned long size)
 {
 	int idx = 0;
 	__u32 startsect;
+	__u8 tmpbuf[FS_BLOCK_SIZE];
 
 	if (clustnum > 0) {
 		startsect = mydata->data_begin + clustnum*mydata->clust_size;
@@ -334,20 +344,35 @@ get_cluster(fsdata *mydata, __u32 clustnum, __u8 *buffer, unsigned long size)
 		startsect = mydata->rootdir_sect;
 	}
 
-	if (disk_read(startsect, size/FS_BLOCK_SIZE , buffer) < 0) {
-		FAT_DPRINT("Error reading data\n");
-		return -1;
-	}
-	if(size % FS_BLOCK_SIZE) {
-		__u8 tmpbuf[FS_BLOCK_SIZE];
-		idx= size/FS_BLOCK_SIZE;
-		if (disk_read(startsect + idx, 1, tmpbuf) < 0) {
+	// sacrifice speed for reliability (RAM-Test)
+	
+	idx = size/FS_BLOCK_SIZE;
+	while(idx-- > 0) { // read full blocks
+		if (disk_read(startsect, 1 , tmpbuf) < 0) {
 			FAT_DPRINT("Error reading data\n");
 			return -1;
 		}
-		buffer += idx*FS_BLOCK_SIZE;
+		memcpy(buffer, tmpbuf, FS_BLOCK_SIZE);
+		if(memcmp(buffer, tmpbuf, FS_BLOCK_SIZE) != 0) {
+			FAT_ERROR("Memory error\n");
+			return -1;
+		}
+		startsect++;
+		buffer += FS_BLOCK_SIZE;
+	}
+
+	if(size % FS_BLOCK_SIZE) { // read last fragment
+		idx= size/FS_BLOCK_SIZE;
+		if (disk_read(startsect, 1, tmpbuf) < 0) {
+			FAT_DPRINT("Error reading data\n");
+			return -1;
+		}
 
 		memcpy(buffer, tmpbuf, size % FS_BLOCK_SIZE);
+		if(memcmp(buffer, tmpbuf, size % FS_BLOCK_SIZE) != 0) {
+			FAT_ERROR("Memory error\n");
+			return -1;
+		}
 		return 0;
 	}
 
