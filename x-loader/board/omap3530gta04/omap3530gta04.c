@@ -481,6 +481,8 @@ u32 wait_on_value(u32 read_bit_mask, u32 match_value, u32 read_addr, u32 bound)
 
 int identify_xm_ddr(void)
 {
+#ifdef CONFIG_NAND
+
 	int	mfr, id;
 	extern int nand_readid(int *mfr, int *id);
 	
@@ -504,8 +506,10 @@ int identify_xm_ddr(void)
 		return NUMONYX_MCP;
 	if ((mfr == 0x2c) && (id == 0xbc))
 		return MICRON_MCP;
+#endif
 	return 0;
 }
+
 /*********************************************************************
  * config_3430sdram_ddr() - Init DDR on 3430SDP dev board.
  *********************************************************************/
@@ -1062,7 +1066,7 @@ void per_clocks_enable(void)
 	MUX_VAL(CP(GPMC_nCS3),      (IDIS | PTU | EN  | M0)) /*GPMC_nCS3*/\
 	MUX_VAL(CP(GPMC_nCS4),      (IDIS | PTU | EN  | M0)) /*GPMC_nCS4*/\
 	MUX_VAL(CP(GPMC_nCS5),      (IDIS | PTD | DIS | M0)) /*GPMC_nCS5*/\
-MUX_VAL(CP(GPMC_nCS6),      (IEN  | PTD | DIS | M4)) /*GPMC_nCS6=gpio_57*/\
+MUX_VAL(CP(GPMC_nCS6),      (IEN  | PTD | DIS | M4)) /*GPMC_nCS6=gpio_57=gpt11_pwm*/\
 	MUX_VAL(CP(GPMC_nCS7),      (IEN  | PTU | EN  | M1)) /*GPMC_nCS7*/\
 	MUX_VAL(CP(GPMC_CLK),       (IDIS | PTD | DIS | M0)) /*GPMC_CLK*/\
 	MUX_VAL(CP(GPMC_nADV_ALE),  (IDIS | PTD | DIS | M0)) /*GPMC_nADV_ALE*/\
@@ -1147,6 +1151,9 @@ MUX_VAL(CP(ETK_CTL),        (IEN  | PTU | DIS | M4)) /*GPIO_13*/\
 void set_muxconf_regs(void)
 {
 	MUX_DEFAULT();
+#if 1	// enable backlight as first boot indication
+	MUX_VAL(CP(GPMC_nCS6),      (IEN  | PTU | EN | M4)); /*GPMC_nCS6=gpio_57=gpt11_pwm*/
+#endif
 }
 
 /**********************************************************
@@ -1156,6 +1163,7 @@ void set_muxconf_regs(void)
 
 int nand_init(void)
 {
+#ifdef CONFIG_NAND
 	/* global settings */
 	__raw_writel(0x10, GPMC_SYSCONFIG);	/* smart idle */
 	__raw_writel(0x0, GPMC_IRQENABLE);	/* isr's sources masked */
@@ -1214,6 +1222,7 @@ int nand_init(void)
 			return 1;
 		}
 	}
+#endif
 #endif
 	return 0;
 }

@@ -36,7 +36,7 @@
 #include <asm/arch/mem.h>
 
 const char version_string[] =
-	"Texas Instruments X-Loader 1.4.4ss (" __DATE__ " - " __TIME__ ")";
+	"Texas Instruments X-Loader 1.4.4ss modified for GTA04 (" __DATE__ " - " __TIME__ ")";
 
 int print_info(void)
 {
@@ -99,12 +99,14 @@ void start_armboot (void)
 		size = file_fat_read("u-boot.bin", buf, 0);
 		if (size > 0) {
 #ifdef CFG_PRINTF
-			printf("Loading u-boot.bin from mmc\n");
+			printf("Loading u-boot.bin (%i bytes) from mmc/sd\n", size);
 #endif
 			buf += size;
 		}
 	}
 #endif
+
+#ifdef CONFIG_NAND
 
 	if (buf == (uchar *)CFG_LOADADDR) {
 		/* if no u-boot on mmc, try onenand or nand, depending upon sysboot */
@@ -130,6 +132,7 @@ void start_armboot (void)
 #endif
 		}
 	}
+#endif
 
 	/* if u-boot not found on mmc or
          * nand read result is erased data
@@ -137,6 +140,7 @@ void start_armboot (void)
          */
 	first_instruction = (int *)CFG_LOADADDR;
 	if((buf == (uchar *)CFG_LOADADDR) || (*first_instruction == 0xffffffff)) {
+		extern int do_load_serial_bin (ulong offset, int baudrate);
 		printf("u-boot.bin not found or blank nand contents - attempting serial boot . . .\n");
 		do_load_serial_bin(CFG_LOADADDR, 115200);
 	}
