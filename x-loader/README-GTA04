@@ -1,0 +1,46 @@
+This X-loader has been modified for the http://www.GTA04.org board:
+
+* added Micron MCP detection
+* added board revision detection
+* added GTA04 notice to greeting
+* added memory write check when loading u-boot.bin
+  from SD card to detect SDRAM failures
+* added more Macros to compile either x-loader, MLO and
+  serial loader from the same sources
+
+For compiling the different variants, modify these files
+
+1. X-Loader
+a) include/configs/omap3530gta04.h 
+//#define CONFIG_MMC 1
+#define CONFIG_NAND 1
+
+b) board/omap3530gta04/config.mk
+TEXT_BASE = 0x40200800
+
+2. MLO
+a) include/configs/omap3530gta04.h 
+#define CONFIG_MMC 1
+#define CONFIG_NAND 1
+
+b) board/omap3530gta04/config.mk
+TEXT_BASE = 0x40200800
+
+3. Serial Loader
+a) include/configs/omap3530gta04.h 
+//#define CONFIG_MMC 1
+//#define CONFIG_NAND 1
+
+b) board/omap3530gta04/config.mk
+TEXT_BASE = 0x40200800
+
+
+Compile:
+make omap3530gta04_config
+
+
+Result file:
+X-Loader:	x-load.bin.ift
+MLO:		rename x-load.bin.ift to MLO
+Serial Loader:	send x-load.bin through pserial tool
+
