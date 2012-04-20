@@ -79,7 +79,7 @@ static inline int gpio_is_input(int n)
 	return (base->oe >> bit)&1;
 }
 
-int strcmp(char *s1, char *s2)
+static int strcmp(char *s1, char *s2)
 {
 	while(*s1 == *s2) {
 		if(*s1 == 0)
@@ -90,7 +90,7 @@ int strcmp(char *s1, char *s2)
 	return *s1 > *s2?1:-1;
 }
 
-long xtol(char *s)
+static long xtol(char *s)
 {
 	long val=0;
 	while(1)
