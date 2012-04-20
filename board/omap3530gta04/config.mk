@@ -20,4 +20,4 @@
 # initial stack at 0x4020fffc used in s_init (below xloader).
 # The run time stack is (above xloader, 2k below)
 # If any globals exist there needs to be room for them also
-TEXT_BASE = 0x40208800
+TEXT_BASE = 0x40200800

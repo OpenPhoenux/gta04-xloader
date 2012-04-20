@@ -1,1 +1,0 @@
-../../../u-boot/cpu/omap3/mmc.c

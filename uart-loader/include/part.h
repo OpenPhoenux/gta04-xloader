@@ -1,1 +1,0 @@
-../../u-boot/include/part.h
