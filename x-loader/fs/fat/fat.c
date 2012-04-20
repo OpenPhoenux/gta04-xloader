@@ -354,7 +354,7 @@ get_cluster(fsdata *mydata, __u32 clustnum, __u8 *buffer, unsigned long size)
 		}
 		memcpy(buffer, tmpbuf, FS_BLOCK_SIZE);
 		if(memcmp(buffer, tmpbuf, FS_BLOCK_SIZE) != 0) {
-			FAT_ERROR("Memory error\n");
+			FAT_ERROR("Memory error at 0x%8x\n", buffer);
 			return -1;
 		}
 		startsect++;
@@ -370,7 +370,7 @@ get_cluster(fsdata *mydata, __u32 clustnum, __u8 *buffer, unsigned long size)
 
 		memcpy(buffer, tmpbuf, size % FS_BLOCK_SIZE);
 		if(memcmp(buffer, tmpbuf, size % FS_BLOCK_SIZE) != 0) {
-			FAT_ERROR("Memory error\n");
+			FAT_ERROR("Memory error at 0x%8x\n", buffer);
 			return -1;
 		}
 		return 0;

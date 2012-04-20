@@ -85,7 +85,7 @@
 #else
 #define FAT_DPRINT(args...)
 #endif
-#define FAT_ERROR(arg)		printf(arg)
+#define FAT_ERROR(args...)	printf(args)
 
 #define ISDIRDELIM(c)   ((c) == '/' || (c) == '\\')
 
