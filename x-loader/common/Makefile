@@ -27,7 +27,7 @@ LIB	= $(obj)libcommon.a
 
 AOBJS	=
 
-COBJS	= cmd_load.o
+COBJS	= cmd_load.o cmd_monitor.o
 
 SRCS	:= $(AOBJS:.o=.S) $(COBJS:.o=.c)
 OBJS	:= $(addprefix $(obj),$(AOBJS) $(COBJS))

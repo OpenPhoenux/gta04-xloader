@@ -81,6 +81,7 @@ static void set_kerm_bin_mode(unsigned long *);
 static int k_recv(void);
 static ulong load_serial_bin (ulong offset);
 
+extern int lowlevel_monitor (void);
 
 char his_eol;        /* character he needs at end of packet */
 int  his_pad_count;  /* number of pad chars he needs */
@@ -93,7 +94,7 @@ int do_load_serial_bin (ulong offset, int baudrate)
 	int rcode = 0;
 
 	printf ("## Ready for binary (kermit) download "
-		"to 0x%08lX at %d bps...\n",
+		"to 0x%08lX at %d bps. Press 'M' to break into low level monitor.\n",
 		offset,
 		baudrate);
 	addr = load_serial_bin (offset);
@@ -432,6 +433,9 @@ static int k_recv (void)
 				goto START;
 			case ETX_CHAR:		/* ^C waiting for packet */
 				return (0);
+			case 'M':
+				lowlevel_monitor();
+				break;
 			default:
 				;
 			}
