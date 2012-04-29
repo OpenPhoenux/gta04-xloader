@@ -261,14 +261,14 @@ int lowlevel_monitor (void)
 		else if(strcmp(argv[0], "rt") == 0) { // rt
 			unsigned char val;
 			printf("filling\n");
-			for(addr=(char *) CFG_LOADADDR; addr < 512*1024*1024+(char *) 0x80000000; addr++) {
+			for(addr=(char *) CFG_LOADADDR; addr < 256*1024*1024+(char *) 0x80000000; addr++) {
 				val=(unsigned int) addr + (((unsigned int) addr) >> 8) + (((unsigned int) addr) >> 16) + (((unsigned int) addr) >> 24);	// build from address
 				if((((unsigned int)addr) & 0xfffff) == 0)	// approx. 1 MByte per second
 					printf("%08x: %02x\n", addr, val);
 				*addr=val;	// fill ram with prime pattern
 			}
 			printf("\nchecking\n");
-			for(addr=(char *) CFG_LOADADDR; addr < 512*1024*1024+(char *) 0x80000000; addr++) {
+			for(addr=(char *) CFG_LOADADDR; addr < 256*1024*1024+(char *) 0x80000000; addr++) {
 				unsigned char r=*addr;		// read back
 				val=(unsigned int) addr + (((unsigned int) addr) >> 8) + (((unsigned int) addr) >> 16) + (((unsigned int) addr) >> 24);
 				if((((unsigned int)addr) & 0xfffff) == 0)
