@@ -17,13 +17,16 @@
 *.i
 *.lst
 *.symtypes
+*.log
 
 #
 # Top-level generic files
 #
-x-load
-x-load.*
-System.map
+/x-load
+/s-load
+/x-load.*
+/s-load.*
+/System.map
 include/asm/arch
 include/asm/proc
 include/config.h
