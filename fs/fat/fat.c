@@ -511,7 +511,7 @@ static dir_entry *get_dentfromdir (fsdata * mydata, int startsect,
 				   char *filename, dir_entry * retdent,
 				   int dols)
 {
-
+	return NULL;
 }
 
 #if 0
