@@ -506,6 +506,8 @@ int identify_xm_ddr(void)
 		return NUMONYX_MCP;
 	if ((mfr == 0x2c) && (id == 0xbc))
 		return MICRON_MCP;
+	if ((mfr == 0x2c) && (id == 0xb3))
+		return MICRON_MCP;
 #endif
 	return 0;
 }
