@@ -109,7 +109,7 @@ int board_init(void)
 	 
 */
 	
-#if 0   /* no - does not work as expected */
+#if 0   /* no - does not work as expected because the i2c driver is not part of X-Loader */
 	
 	/*
 	 For charging using USB, the software must enable the USB automatic
@@ -160,6 +160,13 @@ int board_init(void)
 	data |= 0x04;	// USBFASTMCHG
 	i2c_write(0x4A, 0x84, 1, &data, 1);	// write BCIMFSTS4
 	
+	/* if we can make this work,
+	 * we should try to enable the power LED (TCA6507)
+	 * so that the user gets an early feedback that X-Loader
+	 * has started, early after pressing the power button
+	 * but can X-Loader write to other I2C or only bus 0?
+	 */
+
 #endif
 	return 0;
 }
