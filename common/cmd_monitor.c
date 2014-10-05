@@ -26,10 +26,12 @@
  * run in Kermit mode by starting with "M"
  */
 #include <common.h>
+
 #include <asm/arch/mux.h>
 
 #define putc serial_putc
 #define tstc serial_tstc
+
 
 /*******************************************************
  * Routine: delay
@@ -44,6 +46,8 @@ static inline void udelay(unsigned long us)
 {
 	delay(us * 200); /* approximate */
 }
+
+#ifndef CONFIG_OMAP44XX
 
 typedef struct gpio {
 	unsigned char res1[0x34];
@@ -78,6 +82,8 @@ static inline int gpio_is_input(int n)
 	gpio_t *base=blocks[n/32];
 	return (base->oe >> bit)&1;
 }
+
+#endif
 
 static int strcmp(char *s1, char *s2)
 {
@@ -116,14 +122,19 @@ static char *argv[10];
 #define __raw_readw(a)    (*(volatile unsigned short *)(a))
 #define __raw_writew(v,a) (*(volatile unsigned short *)(a) = (v))
 
+#ifndef CONFIG_OMAP44XX
+
 #define 	MUX_VAL(OFFSET,VALUE)\
 __raw_writew((VALUE), OMAP34XX_CTRL_BASE + (OFFSET));
 
 #define		CP(x)	(CONTROL_PADCONF_##x)
 
+#endif
+
 void testfn(void)
 { // code can be copied to SDRAM (assuming that it is position-independent!)
 	int i;
+#ifndef CONFIG_OMAP44XX
 	for(i=0; i<10; i++) {
 		if(i & 1)
 			MUX_VAL(CP(GPMC_nCS6),      (IEN | PTD | EN  | M4)) /*GPT_PWM11/GPIO57*/
@@ -131,6 +142,7 @@ void testfn(void)
 			MUX_VAL(CP(GPMC_nCS6),      (IEN | PTU | EN  | M4)) /*GPT_PWM11/GPIO57*/
 		udelay(500*1000);
 	}
+#endif
 }
 
 int lowlevel_monitor (void)
@@ -285,6 +297,7 @@ int lowlevel_monitor (void)
 			printf("clk=%d\n", osc_clk);
 		}
 #endif
+#ifndef CONFIG_OMAP44XX
 		else if(strcmp(argv[0], "bl") == 0) { // blink backlight
 			int i;
 			for(i=0; i<10; i++) {
@@ -297,6 +310,8 @@ int lowlevel_monitor (void)
 				udelay(500*1000);
 			}
 		}
+#endif
+#ifndef CONFIG_OMAP44XX
 		else if(strcmp(argv[0], "g") == 0) { // g - read GPIO
 			unsigned int i;
 			int n=32*sizeof(blocks)/sizeof(blocks[0]);
@@ -310,6 +325,8 @@ int lowlevel_monitor (void)
 			printf("\n");
 			
 		}
+#endif
+#ifndef CONFIG_OMAP44XX
 		else if(strcmp(argv[0], "m") == 0) { // m - read pinmux
 			int cols=0;
 			addr=0x48002030;
@@ -334,6 +351,7 @@ int lowlevel_monitor (void)
 			}
 			printf("\n");
 		}
+#endif
 		else if(strcmp(argv[0], "k") == 0) { // k - back to kermit mode
 			printf("Going back to Kermit mode\n");
 			break;
@@ -342,13 +360,19 @@ int lowlevel_monitor (void)
 			{
 			printf("uart-monitor unknown command: %s\n", argv[0]);
 			printf("a: \n");
+#ifndef CONFIG_OMAP44XX
 			printf("bl: \n");
+#endif
 			printf("c: \n");
 			printf("f: fill RAM with pattern\n");
+#ifndef CONFIG_OMAP44XX
 			printf("g: read GPIO\n");
+#endif
 			printf("k: back to Kermit mode\n");
 			printf("l: \n");
+#ifndef CONFIG_OMAP44XX
 			printf("m: read Pinmux\n");
+#endif
 			printf("r: \n");
 			printf("ram: \n");
 			printf("rl: \n");
@@ -358,4 +382,3 @@ int lowlevel_monitor (void)
 	}
 	return 0;
 }
-	
