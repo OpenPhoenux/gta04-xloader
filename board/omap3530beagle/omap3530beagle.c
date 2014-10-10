@@ -270,6 +270,8 @@ u32 wait_on_value(u32 read_bit_mask, u32 match_value, u32 read_addr, u32 bound)
 #define NUMONYX_MCP	1
 int identify_xm_ddr()
 {
+#ifdef CONFIG_NAND
+
 	int	mfr, id;
 
 	__raw_writel(M_NAND_GPMC_CONFIG1, GPMC_CONFIG1 + GPMC_CONFIG_CS0);
@@ -290,6 +292,8 @@ int identify_xm_ddr()
 		return MICRON_DDR;
 	if ((mfr == 0x20) && (id == 0xba))
 		return NUMONYX_MCP;
+#endif
+	return 0;
 }
 /*********************************************************************
  * config_3430sdram_ddr() - Init DDR on 3430SDP dev board.
@@ -971,6 +975,7 @@ void set_muxconf_regs(void)
 
 int nand_init(void)
 {
+#ifdef CONFIG_NAND
 	/* global settings */
 	__raw_writel(0x10, GPMC_SYSCONFIG);	/* smart idle */
 	__raw_writel(0x0, GPMC_IRQENABLE);	/* isr's sources masked */
@@ -1029,6 +1034,7 @@ int nand_init(void)
 			return 1;
 		}
 	}
+#endif
 #endif
 	return 0;
 }
