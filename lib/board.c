@@ -35,12 +35,15 @@
 #include <fat.h>
 #include <asm/arch/mem.h>
 
-#ifdef CONFIG_MMC
-const char version_string[] =
-	"Texas Instruments X-Loader 1.4.4ss modified for GTA04 (" __DATE__ " - " __TIME__ ")";
-#else
+#if defined(CONFIG_MMC)
 const char version_string[] =
 	"Texas Instruments X-Loader (MLO) 1.4.4ss modified for GTA04 (" __DATE__ " - " __TIME__ ")";
+#elif defined(CONFIG_NAND)
+const char version_string[] =
+	"Texas Instruments X-Loader (NAND) 1.4.4ss modified for GTA04 (" __DATE__ " - " __TIME__ ")";
+#else
+const char version_string[] =
+	"Texas Instruments X-Loader (SLO) 1.4.4ss modified for GTA04 (" __DATE__ " - " __TIME__ ")";
 #endif
 
 int print_info(void)

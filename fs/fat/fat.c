@@ -626,7 +626,7 @@ read_bootsectandvi(boot_sector *bs, volume_info *volinfo, int *fatsize)
 	__u8 block[FS_BLOCK_SIZE];
 	volume_info *vistart;
 
-	printf("Reading boot sector\n");
+	printf("Reading FAT boot sector\n");
 
 	if (disk_read(0, 1, block) < 0) {
 		FAT_DPRINT("Error: reading block\n");
