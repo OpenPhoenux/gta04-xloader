@@ -58,15 +58,25 @@ struct dpll_param {
 typedef struct dpll_param dpll_param;
 
 /* Following functions are exported from lowlevel_init.S */
-extern dpll_param *get_mpu_dpll_param();
-extern dpll_param *get_iva_dpll_param();
-extern dpll_param *get_core_dpll_param();
-extern dpll_param *get_per_dpll_param();
+extern dpll_param *get_mpu_dpll_param(void);
+extern dpll_param *get_iva_dpll_param(void);
+extern dpll_param *get_core_dpll_param(void);
+extern dpll_param *get_per_dpll_param(void);
 
 #define __raw_readl(a)		(*(volatile unsigned int *)(a))
 #define __raw_writel(v, a)	(*(volatile unsigned int *)(a) = (v))
 #define __raw_readw(a)		(*(volatile unsigned short *)(a))
 #define __raw_writew(v, a)	(*(volatile unsigned short *)(a) = (v))
+
+static char *rev_s[CPU_3XX_MAX_REV] = {
+	"1.0",
+	"2.0",
+	"2.1",
+	"3.0",
+	"3.1",
+	"UNKNOWN",
+	"UNKNOWN",
+	"3.1.2"};
 
 /*******************************************************
  * Routine: delay
@@ -117,7 +127,7 @@ u32 get_sysboot_value(void)
  *************************************************************/
 u32 get_mem_type(void)
 {
-	
+	extern int beagle_revision(void);
 	if (beagle_revision() == REVISION_XM)
 		return GPMC_NONE;
 
@@ -164,6 +174,67 @@ u32 get_mem_type(void)
 }
 
 /******************************************
+ * get_cpu_type(void) - extract cpu info
+ ******************************************/
+u32 get_cpu_type(void)
+{
+	return __raw_readl(CONTROL_OMAP_STATUS);
+}
+
+/******************************************
+ * get_cpu_id(void) - extract cpu id
+ * returns 0 for ES1.0, cpuid otherwise
+ ******************************************/
+u32 get_cpu_id(void)
+{
+	u32 cpuid = 0;
+
+	/*
+	 * On ES1.0 the IDCODE register is not exposed on L4
+	 * so using CPU ID to differentiate between ES1.0 and > ES1.0.
+	 */
+	__asm__ __volatile__("mrc p15, 0, %0, c0, c0, 0":"=r"(cpuid));
+	if ((cpuid & 0xf) == 0x0) {
+		return 0;
+	} else {
+		/* Decode the IDs on > ES1.0 */
+		cpuid = __raw_readl(CONTROL_IDCODE);
+	}
+
+	return cpuid;
+}
+
+/******************************************
+ * get_cpu_family(void) - extract cpu info
+ ******************************************/
+u32 get_cpu_family(void)
+{
+	u16 hawkeye;
+	u32 cpu_family;
+	u32 cpuid = get_cpu_id();
+
+	if (cpuid == 0)
+		return CPU_OMAP34XX;
+
+	hawkeye = (cpuid >> HAWKEYE_SHIFT) & 0xffff;
+	switch (hawkeye) {
+		case HAWKEYE_OMAP34XX:
+			cpu_family = CPU_OMAP34XX;
+			break;
+		case HAWKEYE_AM35XX:
+			cpu_family = CPU_AM35XX;
+			break;
+		case HAWKEYE_OMAP36XX:
+			cpu_family = CPU_OMAP36XX;
+			break;
+		default:
+			cpu_family = CPU_OMAP34XX;
+	}
+
+	return cpu_family;
+}
+
+/******************************************
  * get_cpu_rev(void) - extract version info
  ******************************************/
 u32 get_cpu_rev(void)
@@ -179,6 +250,87 @@ u32 get_cpu_rev(void)
 	else
 		return CPU_3430_ES2;
 
+}
+
+/******************************************
+ * Print CPU information
+ ******************************************/
+int print_cpuinfo (void)
+{
+	char *cpu_family_s, *cpu_s, *sec_s;
+
+	switch (get_cpu_family()) {
+		case CPU_OMAP34XX:
+			cpu_family_s = "OMAP";
+			switch (get_cpu_type()) {
+				case OMAP3503:
+					cpu_s = "3503";
+					break;
+				case OMAP3515:
+					cpu_s = "3515";
+					break;
+				case OMAP3525:
+					cpu_s = "3525";
+					break;
+				case OMAP3530:
+					cpu_s = "3530";
+					break;
+				default:
+					cpu_s = "35XX";
+					break;
+			}
+			break;
+		case CPU_AM35XX:
+			cpu_family_s = "AM";
+			switch (get_cpu_type()) {
+				case AM3505:
+					cpu_s = "3505";
+					break;
+				case AM3517:
+					cpu_s = "3517";
+					break;
+				default:
+					cpu_s = "35XX";
+					break;
+			}
+			break;
+		case CPU_OMAP36XX:
+			cpu_family_s = "OMAP";
+			switch (get_cpu_type()) {
+				case OMAP3730:
+					cpu_s = "3630/3730";
+					break;
+				default:
+					cpu_s = "36XX/37XX";
+					break;
+			}
+			break;
+		default:
+			cpu_family_s = "OMAP";
+			cpu_s = "35XX";
+	}
+
+	switch (get_device_type()) {
+		case TST_DEVICE:
+			sec_s = "TST";
+			break;
+		case EMU_DEVICE:
+			sec_s = "EMU";
+			break;
+		case HS_DEVICE:
+			sec_s = "HS";
+			break;
+		case GP_DEVICE:
+			sec_s = "GP";
+			break;
+		default:
+			sec_s = "?";
+	}
+
+	printf("%s%s-%s ES%s\n",
+		   cpu_family_s, cpu_s, sec_s, rev_s[get_cpu_rev()]);
+
+	return 0;
 }
 
 /******************************************
@@ -266,13 +418,18 @@ u32 wait_on_value(u32 read_bit_mask, u32 match_value, u32 read_addr, u32 bound)
 
 #ifdef CFG_3430SDRAM_DDR
 
-#define MICRON_DDR	0
-#define NUMONYX_MCP	1
+#define DDR_ONLY	1
+#define NUMONYX_MCP	2
+#define SAMSUNG_1G	NUMONYX_MCP
+#define MICRON_MCP256	3
+#define MICRON_MCP512	4
+
 int identify_xm_ddr()
 {
 #ifdef CONFIG_NAND
 
 	int	mfr, id;
+	extern int nand_readid(int *mfr, int *id);
 
 	__raw_writel(M_NAND_GPMC_CONFIG1, GPMC_CONFIG1 + GPMC_CONFIG_CS0);
 	__raw_writel(M_NAND_GPMC_CONFIG2, GPMC_CONFIG2 + GPMC_CONFIG_CS0);
@@ -289,12 +446,44 @@ int identify_xm_ddr()
 
 	nand_readid(&mfr, &id);
 	if (mfr == 0)
-		return MICRON_DDR;
+		return DDR_ONLY;
 	if ((mfr == 0x20) && (id == 0xba))
 		return NUMONYX_MCP;
+	if ((mfr == 0x2c) && (id == 0xba))
+		return MICRON_MCP256;
+	if ((mfr == 0x2c) && (id == 0xbc))
+		return MICRON_MCP512;
+	if ((mfr == 0x2c) && (id == 0xb3))
+		return MICRON_MCP512;
 #endif
-	return 0;
+	return DDR_ONLY;
 }
+
+int identify_real_ddr()
+{ // overwrite some special cases
+	int ram;
+	ram=identify_xm_ddr();
+	switch(beagle_revision()) {
+		case REVISION_C4:
+			if(ram == NUMONYX_MCP)
+				ram=MICRON_MCP512;		// has fast 512 MB
+			break;
+		case REVISION_XM:
+			if(ram == DDR_ONLY)
+#ifdef BEAGLE_B7	// Neo900 prototype
+				ram=SAMSUNG_1G;		// fast 1GB
+#else
+				ram=MICRON_MCP512;		// fast 512 MB
+#endif
+			break;
+		default:
+			ram=MICRON_MCP256;	// older beagle boards
+			break;
+	}
+	return ram;
+}
+
+
 /*********************************************************************
  * config_3430sdram_ddr() - Init DDR on 3430SDP dev board.
  *********************************************************************/
@@ -308,10 +497,9 @@ void config_3430sdram_ddr(void)
 	/* setup sdrc to ball mux */
 	__raw_writel(SDP_SDRC_SHARING, SDRC_SHARING);
 
-	switch(beagle_revision()) {
-	case REVISION_C4:
-		if (identify_xm_ddr() == NUMONYX_MCP) {
-			__raw_writel(0x4, SDRC_CS_CFG); /* 512MB/bank */
+	switch (identify_real_ddr()) {
+		case NUMONYX_MCP:
+			__raw_writel(0x4, SDRC_CS_CFG); /* 512MB/bank @ 200 MHz */
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM, SDRC_MCFG_0);
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM, SDRC_MCFG_1);
 			__raw_writel(NUMONYX_V_ACTIMA_165, SDRC_ACTIM_CTRLA_0);
@@ -320,21 +508,10 @@ void config_3430sdram_ddr(void)
 			__raw_writel(NUMONYX_V_ACTIMB_165, SDRC_ACTIM_CTRLB_1);
 			__raw_writel(SDP_3430_SDRC_RFR_CTRL_165MHz, SDRC_RFR_CTRL_0);
 			__raw_writel(SDP_3430_SDRC_RFR_CTRL_165MHz, SDRC_RFR_CTRL_1);
-		} else {
-			__raw_writel(0x1, SDRC_CS_CFG); /* 128MB/bank */
-			__raw_writel(SDP_SDRC_MDCFG_0_DDR, SDRC_MCFG_0);
-			__raw_writel(SDP_SDRC_MDCFG_0_DDR, SDRC_MCFG_1);
-			__raw_writel(MICRON_V_ACTIMA_165, SDRC_ACTIM_CTRLA_0);
-			__raw_writel(MICRON_V_ACTIMB_165, SDRC_ACTIM_CTRLB_0);
-			__raw_writel(MICRON_V_ACTIMA_165, SDRC_ACTIM_CTRLA_1);
-			__raw_writel(MICRON_V_ACTIMB_165, SDRC_ACTIM_CTRLB_1);
-			__raw_writel(SDP_3430_SDRC_RFR_CTRL_165MHz, SDRC_RFR_CTRL_0);
-			__raw_writel(SDP_3430_SDRC_RFR_CTRL_165MHz, SDRC_RFR_CTRL_1);
-		}
-		break;
-	case REVISION_XM:
-		if (identify_xm_ddr() == MICRON_DDR) {
-			__raw_writel(0x2, SDRC_CS_CFG); /* 256MB/bank */
+			break;
+		case MICRON_MCP512:
+			// bigger and faster Micron
+			__raw_writel(0x2, SDRC_CS_CFG); /* 256MB/bank @ 200 MHz */
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_MICRON_XM, SDRC_MCFG_0);
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_MICRON_XM, SDRC_MCFG_1);
 			__raw_writel(MICRON_V_ACTIMA_200, SDRC_ACTIM_CTRLA_0);
@@ -343,28 +520,20 @@ void config_3430sdram_ddr(void)
 			__raw_writel(MICRON_V_ACTIMB_200, SDRC_ACTIM_CTRLB_1);
 			__raw_writel(SDP_3430_SDRC_RFR_CTRL_200MHz, SDRC_RFR_CTRL_0);
 			__raw_writel(SDP_3430_SDRC_RFR_CTRL_200MHz, SDRC_RFR_CTRL_1);
-		} else {
-			__raw_writel(0x4, SDRC_CS_CFG); /* 512MB/bank */
-			__raw_writel(SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM, SDRC_MCFG_0);
-			__raw_writel(SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM, SDRC_MCFG_1);
-			__raw_writel(NUMONYX_V_ACTIMA_165, SDRC_ACTIM_CTRLA_0);
-			__raw_writel(NUMONYX_V_ACTIMB_165, SDRC_ACTIM_CTRLB_0);
-			__raw_writel(NUMONYX_V_ACTIMA_165, SDRC_ACTIM_CTRLA_1);
-			__raw_writel(NUMONYX_V_ACTIMB_165, SDRC_ACTIM_CTRLB_1);
+			break;
+		case MICRON_MCP256:
+		default:
+			// small and slower Micron
+			__raw_writel(0x1, SDRC_CS_CFG); /* 128MB/bank @ 165 MHz */
+			__raw_writel(SDP_SDRC_MDCFG_0_DDR, SDRC_MCFG_0);
+			__raw_writel(SDP_SDRC_MDCFG_0_DDR, SDRC_MCFG_1);
+			__raw_writel(MICRON_V_ACTIMA_165, SDRC_ACTIM_CTRLA_0);
+			__raw_writel(MICRON_V_ACTIMB_165, SDRC_ACTIM_CTRLB_0);
+			__raw_writel(MICRON_V_ACTIMA_165, SDRC_ACTIM_CTRLA_1);
+			__raw_writel(MICRON_V_ACTIMB_165, SDRC_ACTIM_CTRLB_1);
 			__raw_writel(SDP_3430_SDRC_RFR_CTRL_165MHz, SDRC_RFR_CTRL_0);
 			__raw_writel(SDP_3430_SDRC_RFR_CTRL_165MHz, SDRC_RFR_CTRL_1);
-		}
-		break;
-	default:
-		__raw_writel(0x1, SDRC_CS_CFG); /* 128MB/bank */
-		__raw_writel(SDP_SDRC_MDCFG_0_DDR, SDRC_MCFG_0);
-		__raw_writel(SDP_SDRC_MDCFG_0_DDR, SDRC_MCFG_1);
-		__raw_writel(MICRON_V_ACTIMA_165, SDRC_ACTIM_CTRLA_0);
-		__raw_writel(MICRON_V_ACTIMB_165, SDRC_ACTIM_CTRLB_0);
-		__raw_writel(MICRON_V_ACTIMA_165, SDRC_ACTIM_CTRLA_1);
-		__raw_writel(MICRON_V_ACTIMB_165, SDRC_ACTIM_CTRLB_1);
-		__raw_writel(SDP_3430_SDRC_RFR_CTRL_165MHz, SDRC_RFR_CTRL_0);
-		__raw_writel(SDP_3430_SDRC_RFR_CTRL_165MHz, SDRC_RFR_CTRL_1);
+			break;
 	}
 
 	__raw_writel(SDP_SDRC_POWER_POP, SDRC_POWER);
@@ -679,6 +848,7 @@ int misc_init_r(void)
 {
 	int rev;
 
+	print_cpuinfo();
 	rev = beagle_revision();
 	switch (rev) {
 	case REVISION_AXBX:
@@ -696,8 +866,24 @@ int misc_init_r(void)
 	case REVISION_XM:
 		printf("Beagle xM Rev A\n");
 		break;
+	// detect B/C if possible
 	default:
 		printf("Beagle unknown 0x%02x\n", rev);
+	}
+
+	{
+		int	mfr, id;
+		extern int nand_readid(int *mfr, int *id);
+		identify_xm_ddr();	// may initialize something
+		nand_readid(&mfr, &id);
+		printf("Memory: mfr=%02x id=%02x ", mfr, id);
+	}
+	switch (identify_xm_ddr()) {
+		case NUMONYX_MCP: printf("Numonyx MCP 512MB/bank\n"); break;
+		case MICRON_MCP512: printf("Micron MCP 512MB/bank\n"); break;
+		case MICRON_MCP256: printf("Micron MCP 256MB/bank\n"); break;
+		case DDR_ONLY: printf("DDR 128MB/bank\n"); break;
+		default: printf("unknown (%02x %02x) 128MB/bank\n"); break;
 	}
 
 	return 0;

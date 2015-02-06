@@ -482,9 +482,9 @@ u32 wait_on_value(u32 read_bit_mask, u32 match_value, u32 read_addr, u32 bound)
 
 #ifdef CFG_3430SDRAM_DDR
 
-#define MICRON_DDR	0
-#define NUMONYX_MCP	1
-#define MICRON_MCP	2
+#define MICRON_DDR	1
+#define NUMONYX_MCP	2
+#define MICRON_MCP	3
 
 int identify_xm_ddr(void)
 {
@@ -536,8 +536,8 @@ void config_3430sdram_ddr(void)
 	
 	switch (identify_xm_ddr()) {
 		case NUMONYX_MCP:
-			// should not be used on GTA04
-			__raw_writel(0x4, SDRC_CS_CFG); /* 512MB/bank */
+			// should not have been installed on GTA04
+			__raw_writel(0x4, SDRC_CS_CFG); /* 512MB/bank @200 MHz */
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM, SDRC_MCFG_0);
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM, SDRC_MCFG_1);
 			__raw_writel(NUMONYX_V_ACTIMA_165, SDRC_ACTIM_CTRLA_0);
@@ -549,7 +549,7 @@ void config_3430sdram_ddr(void)
 			break;
 		case MICRON_MCP:
 			// big Micron
-			__raw_writel(0x2, SDRC_CS_CFG); /* 256MB/bank */
+			__raw_writel(0x2, SDRC_CS_CFG); /* 256MB/bank @200 MHz */
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_MICRON_XM, SDRC_MCFG_0);
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_MICRON_XM, SDRC_MCFG_1);
 			__raw_writel(MICRON_V_ACTIMA_200, SDRC_ACTIM_CTRLA_0);
@@ -561,8 +561,8 @@ void config_3430sdram_ddr(void)
 			break;
 		case MICRON_DDR:
 		default:
-			// small micron
-			__raw_writel(0x1, SDRC_CS_CFG); /* 128MB/bank */
+			// small Micron
+			__raw_writel(0x1, SDRC_CS_CFG); /* 128MB/bank @160 MHz */
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR, SDRC_MCFG_0);
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR, SDRC_MCFG_1);
 			__raw_writel(MICRON_V_ACTIMA_165, SDRC_ACTIM_CTRLA_0);
@@ -892,7 +892,11 @@ int misc_init_r(void)
 		case NUMONYX_MCP: printf("Memory: Numonyx MCP 512MB/bank\n"); break;
 		case MICRON_MCP: printf("Memory: Micron MCP 256MB/bank\n"); break;
 		case MICRON_DDR: printf("Memory: Micron DDR 128MB/bank\n"); break;
-		default: printf("Memory: unknown 128MB/bank\n"); break;
+		default: {
+			int	mfr, id;
+			nand_readid(&mfr, &id);
+			printf("Memory: unknown (%02x %02x) 128MB/bank\n", mfr, id); break;
+		}
 	}
 	return 0;
 }
