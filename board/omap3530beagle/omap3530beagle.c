@@ -874,6 +874,7 @@ int misc_init_r(void)
 	{
 		int	mfr, id;
 		extern int nand_readid(int *mfr, int *id);
+		printf("Sysboot: %d %d\n", get_sysboot_value(), get_mem_type());
 		identify_xm_ddr();	// may initialize something
 		nand_readid(&mfr, &id);
 		printf("Memory: mfr=%02x id=%02x ", mfr, id);
