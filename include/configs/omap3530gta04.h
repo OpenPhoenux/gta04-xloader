@@ -24,8 +24,8 @@
  * MA 02111-1307 USA
  */
 
-#ifndef __CONFIG_H
-#define __CONFIG_H
+#ifndef __CONFIG_GTA04_H
+#define __CONFIG_GTA04_H
 
 #include "omap3530beagle.h"
 
@@ -33,5 +33,5 @@
 #define CONFIG_OMAP36XX			 1	  /* or 36XX (DM3730) */
 #define PRCM_CLK_CFG2_400MHZ     1
 
-#endif /* __CONFIG_H */
+#endif /* __CONFIG_GTA04_H */
 
