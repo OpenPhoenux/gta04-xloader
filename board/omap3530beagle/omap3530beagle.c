@@ -1013,7 +1013,7 @@ int misc_init_r(void)
 	printf("GMPC Memory: %d\n", get_mem_type());
 	printf("SDRC Memory: ");
 	switch (identify_real_ddr()) {
-		case SAMSUNG_MCP: printf("SAMSUNG MCP 512(?)MB/bank\n"); break;
+		case SAMSUNG_MCP: printf("SAMSUNG MCP 512MB/bank\n"); break;
 		case NUMONYX_MCP: printf("Numonyx MCP 512MB/bank\n"); break;
 		case MICRON_MCP512: printf("Micron MCP 256MB/bank\n"); break;
 		case MICRON_MCP256: printf("Micron MCP 128MB/bank\n"); break;
