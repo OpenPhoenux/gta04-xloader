@@ -620,21 +620,9 @@ void config_3430sdram_ddr(void)
 
 	switch (identify_real_ddr()) {
 		case SAMSUNG_MCP:
-			/* FIXME:
-			* if we make it like the 512 NUMONYX, we get a report of 1GB
-			* but memory addresse 80000000 and 90000000 are the same
-			* a0000000 and b0000000 as well, but differ from 80000000
-			* this means that the Samsung chip has two banks and they
-			* are separated, but they are only 256 MB and not 512 MB?
-			* or do we have to do some pinmux/enable for an additional
-			* address line?
-			* or does this chip have 4 banks with 256 each?
-			* if we configure it like the MICRON MCP512 it works as well
-			* but the duplication (and the 1GB) are gone
-			*/
-			__raw_writel(0x2, SDRC_CS_CFG); /* 256MB/bank @ 200 MHz */
-			__raw_writel(SDP_SDRC_MDCFG_0_DDR_MICRON_XM, SDRC_MCFG_0);
-			__raw_writel(SDP_SDRC_MDCFG_0_DDR_MICRON_XM, SDRC_MCFG_1);
+			__raw_writel(0x4, SDRC_CS_CFG);
+			__raw_writel(0x3690019, SDRC_MCFG_0);
+			__raw_writel(0x3690019, SDRC_MCFG_1);
 			__raw_writel(MICRON_V_ACTIMA_200, SDRC_ACTIM_CTRLA_0);
 			__raw_writel(MICRON_V_ACTIMB_200, SDRC_ACTIM_CTRLB_0);
 			__raw_writel(MICRON_V_ACTIMA_200, SDRC_ACTIM_CTRLA_1);
