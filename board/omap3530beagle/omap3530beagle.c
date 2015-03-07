@@ -1342,7 +1342,7 @@ int nand_init(void)
 #ifdef CFG_PRINTF
 			printf("Unsupported Chip!\n");
 #endif
-			return 1;
+//			return 1;
 		}
 	}
 #endif
@@ -1366,7 +1366,7 @@ int nand_init(void)
 #ifdef CFG_PRINTF
 			printf("OneNAND Unsupported !\n");
 #endif
-			return 1;
+//			return 1;
 		}
 	}
 #endif
