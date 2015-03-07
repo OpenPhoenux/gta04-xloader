@@ -43,7 +43,7 @@
 #define CONFIG_BEAGLE_REV2	1
 
 /* Enable the below macro if MMC boot support is required */
-//#define CONFIG_MMC 1
+#define CONFIG_MMC 1
 #if defined(CONFIG_MMC)
 	#define CFG_CMD_MMC		1
 	#define CFG_CMD_FAT		1
@@ -83,6 +83,7 @@
 
 /* Enable the below macro if NAND boot support is required */
 #define CONFIG_NAND 1
+#define CFG_ONENAND 1
 
 #define NAND_BASE_ADR	NAND_BASE
 #define ONENAND_BASE	ONENAND_MAP
@@ -131,6 +132,7 @@
 
 
 #define CFG_NAND_K9F1G08R0A
+
 #define NAND_16BIT
 
 /* NAND is partitioned:
