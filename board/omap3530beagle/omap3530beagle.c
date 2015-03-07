@@ -36,7 +36,7 @@
 #include <asm/arch/clocks.h>
 #include <asm/arch/mem.h>
 
-/* params for XM */
+/* params for omap37xx */
 #define CORE_DPLL_PARAM_M2	0x09
 #define CORE_DPLL_PARAM_M	0x360
 #define CORE_DPLL_PARAM_N	0xC
@@ -98,6 +98,81 @@ void udelay (unsigned long usecs) {
  *****************************************/
 int board_init(void)
 {
+	/*
+	 use code like this to early enable USB charging!
+	 so that the board boots with no battery but USB power
+
+	 if i2c does not work at this position,
+	 try to move this code to gta04_revision()
+
+	 I2C_SET_BUS(0);
+	 data = 0x01;
+	 i2c_write(0x4B, 0x29, 1, &data, 1);
+	 data = 0x0c;
+	 i2c_write(0x4B, 0x2b, 1, &data, 1);
+	 i2c_read(0x4B, 0x2a, 1, &data, 1);
+
+*/
+
+#if 0   /* no - does not work as expected because the i2c driver is not part of X-Loader */
+
+	/*
+	 For charging using USB, the software must enable the USB automatic
+	 charge by forcing the BOOT_BCI[1] BCIAUTOUSB bit to 1. When the USB
+	 charger is plugged in, the software detects the type of device
+	 (USB charger or carkit charger). The software must set the POWER_CTRL[5]
+	 OTG_EN bit to 1 at least 50 ms before forcing the BCIMFSTS4[2] USBFASTMCHG
+	 bit to 1.
+	 */
+
+	u8 data;
+	int i;
+
+	I2C_SET_BUS(0);
+
+	 /* enable access to BCIIREF1 */
+	data = 0xE7;
+	i2c_write(0x4A, 0x85, 1, &data, 1);	// write BCIMFKEY
+
+	/* set charging current = 852mA */
+	data = 0xFF;
+	i2c_write(0x4A, 0x9B, 1, &data, 1);	// write BCIIREF1
+
+	/* forcing the field BCIAUTOUSB (BOOT_BCI[1]) to 1 */
+	i2c_read(0x4B, 0x3D, 1, &data, 1);	// read BOOT_BCI
+	data |= 0x33;	// CONFIG_DONE | BCIAUTOWEN | BCIAUTOUSB | BCIAUTOAC
+	i2c_write(0x4B, 0x3D, 1, &data, 1);	// write BOOT_BCI
+
+	/* Enabling interfacing with usb through OCP */
+	i2c_read(0x48, 0xFE, 1, &data, 1);	// read BOOT_BCI
+	data |= 0x01;	// PHY_DPLL_CLK
+	i2c_write(0x48, 0xFE, 1, &data, 1);	// write BOOT_BCI
+
+	do {
+		udelay(10);
+		i2c_read(0x48, 0xFE, 1, &data, 1);	// read PHY_CLK_CTRL_STS
+	} while (!(data & 0x01));	/* loop until PHY DPLL is locked */
+
+	/* OTG_EN (POWER_CTRL[5]) to 1 */
+	data = 0x20;
+	i2c_write(0x48, 0xAD, 1, &data, 1);	// write POWER_CTRL_SET
+
+	for(i=0; i<50; i++)
+		udelay(1000);
+
+	/* forcing USBFASTMCHG(BCIMFSTS4[2]) to 1 */
+	i2c_read(0x4A, 0x84, 1, &data, 1);	// read BCIMFSTS4
+	data |= 0x04;	// USBFASTMCHG
+	i2c_write(0x4A, 0x84, 1, &data, 1);	// write BCIMFSTS4
+
+	/* if we can make this work,
+	 * we should try to enable the power LED (TCA6507)
+	 * so that the user gets an early feedback that X-Loader
+	 * has started, early after pressing the power button
+	 * but can X-Loader write to other I2C or only bus 0?
+	 */
+
+#endif
 	return 0;
 }
 
@@ -127,22 +202,21 @@ u32 get_sysboot_value(void)
  *************************************************************/
 u32 get_mem_type(void)
 {
-	extern int beagle_revision(void);
-	if (beagle_revision() == REVISION_XM)
-		return GPMC_NONE;
-
 	u32   mem_type = get_sysboot_value();
+#if 0	// force some NAND type for debugging
+	return GPMC_ONENAND;
+#endif
 	switch (mem_type) {
 	case 0:
 	case 2:
 	case 4:
-	case 16:
+	case 16:	// BB ONE-NAND or BB XM with SAMSUNG MCP
 	case 22:
 		return GPMC_ONENAND;
 
 	case 1:
 	case 12:
-	case 15:
+	case 15:	// BB NAND or early BB-XM with NAND
 	case 21:
 	case 27:
 		return GPMC_NAND;
@@ -158,8 +232,15 @@ u32 get_mem_type(void)
 	case 26:
 		return GPMC_MDOC;
 
-	case 17:
 	case 18:
+#ifndef CONFIG_GTA04
+		{
+		extern int beagle_revision(void);
+		if (beagle_revision() == REVISION_XM)
+			return GPMC_NONE;	// standard BB XM has no NAND
+		}
+#endif
+	case 17:
 	case 24:
 		return MMC_NAND;
 
@@ -354,6 +435,40 @@ u32 cpu_is_3410(void)
 	}
 }
 
+#ifdef CONFIG_GTA04
+
+int gta04_revision(void)
+{
+	 int rev;
+	 static char revision[8] = {	/* revision table defined by pull-down R305, R306, R307 */
+		9,
+		6,
+		7,
+		3,
+		8,
+		4,
+		5,
+		2
+	 };
+	 omap_request_gpio(171);
+	 omap_request_gpio(172);
+	 omap_request_gpio(173);
+	 omap_set_gpio_direction(171, 1);
+	 omap_set_gpio_direction(172, 1);
+	 omap_set_gpio_direction(173, 1);
+
+	 rev = omap_get_gpio_datain(173) << 2 |
+		omap_get_gpio_datain(172) << 1 |
+		omap_get_gpio_datain(171) << 0;
+	 omap_free_gpio(171);
+	 omap_free_gpio(172);
+	 omap_free_gpio(173);
+
+	 return revision[rev];	/* 000 means GTA04A2 */
+}
+
+#else
+
 /******************************************
  * beagle_identify
  * Description: Detect if we are running on a Beagle revision Ax/Bx,
@@ -385,6 +500,8 @@ int beagle_revision(void)
 
 	return rev;
 }
+
+#endif
 
 /*****************************************************************
  * sr32 - clear & set a value in a bit range for a 32 bit address
@@ -420,14 +537,19 @@ u32 wait_on_value(u32 read_bit_mask, u32 match_value, u32 read_addr, u32 bound)
 
 #define DDR_ONLY	1
 #define NUMONYX_MCP	2
-#define SAMSUNG_1G	NUMONYX_MCP
 #define MICRON_MCP256	3
 #define MICRON_MCP512	4
+#define SAMSUNG_MCP	5
 
-int identify_xm_ddr()
+int identify_xm_ddr(void)
 {
+#ifdef CFG_ONENAND
+	if (get_mem_type() == GPMC_ONENAND)
+		return SAMSUNG_MCP;	// BeagleBoard XM or GTA04b7/Neo900 with Samsung NAND
+#endif
 #ifdef CONFIG_NAND
-
+	if (get_mem_type() == GPMC_NAND)
+	{
 	int	mfr, id;
 	extern int nand_readid(int *mfr, int *id);
 
@@ -455,31 +577,30 @@ int identify_xm_ddr()
 		return MICRON_MCP512;
 	if ((mfr == 0x2c) && (id == 0xb3))
 		return MICRON_MCP512;
+	}
 #endif
 	return DDR_ONLY;
 }
 
-int identify_real_ddr()
+int identify_real_ddr(void)
 { // overwrite some special cases
 	int ram;
 	ram=identify_xm_ddr();
+#ifndef CONFIG_GTA04
 	switch(beagle_revision()) {
 		case REVISION_C4:
 			if(ram == NUMONYX_MCP)
-				ram=MICRON_MCP512;		// has fast 512 MB
+				ram=MICRON_MCP512;	// C4 has fast 512 MB
 			break;
 		case REVISION_XM:
 			if(ram == DDR_ONLY)
-#ifdef BEAGLE_B7	// Neo900 prototype
-				ram=SAMSUNG_1G;		// fast 1GB
-#else
-				ram=MICRON_MCP512;		// fast 512 MB
-#endif
+				ram=MICRON_MCP512;	// XM has fast 512 MB
 			break;
 		default:
 			ram=MICRON_MCP256;	// older beagle boards
 			break;
 	}
+#endif
 	return ram;
 }
 
@@ -498,6 +619,29 @@ void config_3430sdram_ddr(void)
 	__raw_writel(SDP_SDRC_SHARING, SDRC_SHARING);
 
 	switch (identify_real_ddr()) {
+		case SAMSUNG_MCP:
+			/* FIXME:
+			* if we make it like the 512 NUMONYX, we get a report of 1GB
+			* but memory addresse 80000000 and 90000000 are the same
+			* a0000000 and b0000000 as well, but differ from 80000000
+			* this means that the Samsung chip has two banks and they
+			* are separated, but they are only 256 MB and not 512 MB?
+			* or do we have to do some pinmux/enable for an additional
+			* address line?
+			* or does this chip have 4 banks with 256 each?
+			* if we configure it like the MICRON MCP512 it works as well
+			* but the duplication (and the 1GB) are gone
+			*/
+			__raw_writel(0x2, SDRC_CS_CFG); /* 256MB/bank @ 200 MHz */
+			__raw_writel(SDP_SDRC_MDCFG_0_DDR_MICRON_XM, SDRC_MCFG_0);
+			__raw_writel(SDP_SDRC_MDCFG_0_DDR_MICRON_XM, SDRC_MCFG_1);
+			__raw_writel(MICRON_V_ACTIMA_200, SDRC_ACTIM_CTRLA_0);
+			__raw_writel(MICRON_V_ACTIMB_200, SDRC_ACTIM_CTRLB_0);
+			__raw_writel(MICRON_V_ACTIMA_200, SDRC_ACTIM_CTRLA_1);
+			__raw_writel(MICRON_V_ACTIMB_200, SDRC_ACTIM_CTRLB_1);
+			__raw_writel(SDP_3430_SDRC_RFR_CTRL_200MHz, SDRC_RFR_CTRL_0);
+			__raw_writel(SDP_3430_SDRC_RFR_CTRL_200MHz, SDRC_RFR_CTRL_1);
+			break;
 		case NUMONYX_MCP:
 			__raw_writel(0x4, SDRC_CS_CFG); /* 512MB/bank @ 200 MHz */
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM, SDRC_MCFG_0);
@@ -717,7 +861,7 @@ void prcm_init(void)
 	sr32(CM_CLKSEL_DSS, 0, 5, PER_M4X2);	/* set M4 */
 	sr32(CM_CLKSEL_DSS, 8, 5, PER_M3X2);	/* set M3 */
 
-	if (beagle_revision() == REVISION_XM) {
+	if (get_cpu_family() == CPU_OMAP36XX) {
 	        sr32(CM_CLKSEL3_PLL, 0, 5, CORE_DPLL_PARAM_M2);   /* set M2 */
 	        sr32(CM_CLKSEL2_PLL, 8, 11, CORE_DPLL_PARAM_M);   /* set m */
 	        sr32(CM_CLKSEL2_PLL, 0, 7, CORE_DPLL_PARAM_N);    /* set n */
@@ -849,6 +993,11 @@ int misc_init_r(void)
 	int rev;
 
 	print_cpuinfo();
+	printf("Board detected: ");
+#ifdef CONFIG_GTA04
+	rev = gta04_revision();
+	printf("GTA04A%d\n", rev);
+#else
 	rev = beagle_revision();
 	switch (rev) {
 	case REVISION_AXBX:
@@ -868,23 +1017,27 @@ int misc_init_r(void)
 		break;
 	// detect B/C if possible
 	default:
-		printf("Beagle unknown 0x%02x\n", rev);
+		printf("Beagle Rev unknown (0x%02x)\n", rev);
 	}
-
-	{
+#endif
+	printf("SYSBOOT[5:0]: 0x%02x/%d\n",
+			get_sysboot_value(), get_sysboot_value());
+	printf("GMPC Memory: %d\n", get_mem_type());
+	printf("SDRC Memory: ");
+	switch (identify_real_ddr()) {
+		case SAMSUNG_MCP: printf("SAMSUNG MCP 512(?)MB/bank\n"); break;
+		case NUMONYX_MCP: printf("Numonyx MCP 512MB/bank\n"); break;
+		case MICRON_MCP512: printf("Micron MCP 256MB/bank\n"); break;
+		case MICRON_MCP256: printf("Micron MCP 128MB/bank\n"); break;
+		case DDR_ONLY: printf("DDR 128MB/bank\n"); break;
+		default: printf("unknown assuming 128MB/bank\n"); break;
+	}
+	if (get_mem_type() == GPMC_NAND) {
 		int	mfr, id;
 		extern int nand_readid(int *mfr, int *id);
-		printf("Sysboot: %d %d\n", get_sysboot_value(), get_mem_type());
 		identify_xm_ddr();	// may initialize something
 		nand_readid(&mfr, &id);
-		printf("Memory: mfr=%02x id=%02x ", mfr, id);
-	}
-	switch (identify_xm_ddr()) {
-		case NUMONYX_MCP: printf("Numonyx MCP 512MB/bank\n"); break;
-		case MICRON_MCP512: printf("Micron MCP 512MB/bank\n"); break;
-		case MICRON_MCP256: printf("Micron MCP 256MB/bank\n"); break;
-		case DDR_ONLY: printf("DDR 128MB/bank\n"); break;
-		default: printf("unknown (%02x %02x) 128MB/bank\n"); break;
+		printf("NAND: mfr=0x%02x id=0x%02x\n", mfr, id);
 	}
 
 	return 0;
@@ -1153,6 +1306,13 @@ void per_clocks_enable(void)
 void set_muxconf_regs(void)
 {
 	MUX_DEFAULT();
+#ifdef CONFIG_GTA04
+	// enable backlight as first boot indication
+	MUX_VAL(CP(GPMC_nCS6),      (IEN  | PTU | EN  | M4)) /*GPMC_nCS6=gpio_57=gpt11_pwm*/
+	MUX_VAL(CP(UART3_CTS_RCTX), (IEN  | PTD | EN  | M4)) /*UART3_CTS_RCTX */
+	MUX_VAL(CP(UART3_RTS_SD),   (IDIS | PTD | DIS | M4)) /*UART3_RTS_SD */
+	MUX_VAL(CP(ETK_CTL),        (IEN  | PTU | DIS | M4)) /*GPIO_13*/
+#endif
 }
 
 /**********************************************************
@@ -1226,10 +1386,15 @@ int nand_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_GTA04
+#define DEBUG_LED1			149	/* gpio */
+// #define DEBUG_LED2			57	/* gpio */
+#else
 #define DEBUG_LED1			149	/* gpio */
 #define DEBUG_LED2			150	/* gpio */
+#endif
 
-void blinkLEDs()
+void blinkLEDs(void)
 {
 	void *p;
 
@@ -1238,15 +1403,17 @@ void blinkLEDs()
 	while (1) {
 		/* turn LED1 on and LED2 off */
 		*(unsigned long *)(p + 0x94) = 1 << (DEBUG_LED1 % 32);
+#ifdef DEBUG_LED2
 		*(unsigned long *)(p + 0x90) = 1 << (DEBUG_LED2 % 32);
-
+#endif
 		/* delay for a while */
 		delay(1000);
 
 		/* turn LED1 off and LED2 on */
 		*(unsigned long *)(p + 0x90) = 1 << (DEBUG_LED1 % 32);
+#ifdef DEBUG_LED2
 		*(unsigned long *)(p + 0x94) = 1 << (DEBUG_LED2 % 32);
-
+#endif
 		/* delay for a while */
 		delay(1000);
 	}

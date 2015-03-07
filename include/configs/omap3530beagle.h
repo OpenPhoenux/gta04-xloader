@@ -82,7 +82,7 @@
 #define SDRC_R_B_C		1
 
 /* Enable the below macro if NAND boot support is required */
-//#define CONFIG_NAND 1
+#define CONFIG_NAND 1
 
 #define NAND_BASE_ADR	NAND_BASE
 #define ONENAND_BASE	ONENAND_MAP

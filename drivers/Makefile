@@ -37,7 +37,7 @@ COBJS 	+= k9f1g08r0a.o
 endif
 
 ifeq ($(BOARD), omap3530beagle)
-COBJS 	+= k9f1g08r0a.o
+COBJS 	+= k9f1g08r0a.o onenand.o
 endif
 
 ifeq ($(BOARD), omap3530gta04)
