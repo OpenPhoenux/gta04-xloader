@@ -604,6 +604,172 @@ int identify_real_ddr(void)
 	return ram;
 }
 
+/*********************************************************************
+ * Various helper functions to calculate Samsung MCP DDR timings.
+ * Code borrowed from linux kernel (sdram-nokia.c)
+ *********************************************************************/
+static const u32 osc_sys_clk[] = {
+	12000, 13000, 19200, 26000, 38400, 16800
+};
+
+static u32 get_sys_clkin_rate(void)
+{
+  u32 rv;
+
+  rv = osc_sys_clk[__raw_readl(PRM_CLKSEL) & 7];
+
+  if (((__raw_readl(PRM_CLKSRC_CTRL) >> 6) & 3) == 2)
+    rv /= 2;
+
+  return rv;
+}
+
+static u32 get_dpll3_rate(void)
+{
+	u32 dpll3, dpll3_mult, dpll3_div, dpll3_out_div;
+
+	dpll3 = __raw_readl(CM_CLKSEL1_PLL);
+	dpll3_mult = (dpll3 >> 16) & 0x7ff;
+	dpll3_div = ((dpll3 >> 8) & 0x7f) + 1;
+	dpll3_out_div = dpll3 >> 27;
+
+	return (((get_sys_clkin_rate() * dpll3_mult) / dpll3_div) /
+		dpll3_out_div);
+}
+
+static u32 get_l3_rate(void)
+{
+	return get_dpll3_rate() / (__raw_readl(CM_CLKSEL_CORE) & 3);
+}
+
+static u32 get_fclk_period(void)
+{
+	return 1000000000 / get_l3_rate();
+}
+
+static u32 ps_to_ticks(unsigned int time_ps)
+{
+	u32 tick_ps;
+
+	/* Calculate in picosecs to yield more exact results */
+	tick_ps = get_fclk_period();
+
+	return (time_ps + tick_ps - 1) / tick_ps;
+}
+
+static int set_timing_regval(u32 *regval, int st_bit, int end_bit, int ticks)
+{
+	int mask, nr_bits;
+
+	nr_bits = end_bit - st_bit + 1;
+
+	if (ticks >= 1 << nr_bits)
+		return -1;
+
+	mask = (1 << nr_bits) - 1;
+	*regval &= ~(mask << st_bit);
+	*regval |= ticks << st_bit;
+
+	return 0;
+}
+
+static int set_timing_regval_ps(u32 *regval, int st_bit, int end_bit, int time)
+{
+	int ticks;
+
+	if (time == 0)
+		ticks = 0;
+	else
+		ticks = ps_to_ticks(time);
+
+	return set_timing_regval(regval, st_bit, end_bit, ticks);
+}
+
+/*********************************************************************
+ * config_samsung_mcp_ddr() - Init DDR on BeagleBoard XM or
+ * GTA04b7/Neo900 with Samsung MCP
+ *********************************************************************/
+static int config_samsung_mcp_ddr(void)
+{
+	u32 rfr, auto_rfr, actim_ctrlb = 0, actim_ctrla = 0;
+
+	__raw_writel(SMART_IDLE, SDRC_SYSCONFIG);
+
+	__raw_writel(0x3690019, SDRC_MCFG_0);
+	__raw_writel(0x3690019, SDRC_MCFG_1);
+	__raw_writel(4, SDRC_CS_CFG);
+
+	/* FIXME - use defines or a structure instead of hardcoded values */
+	if (set_timing_regval_ps(&actim_ctrla, 0, 4, 30725) < 0 ||
+	    set_timing_regval_ps(&actim_ctrla, 6, 8, 15362) < 0 ||
+	    set_timing_regval_ps(&actim_ctrla, 9, 11, 10241) < 0 ||
+	    set_timing_regval_ps(&actim_ctrla, 12, 14, 20483) < 0 ||
+	    set_timing_regval_ps(&actim_ctrla, 15, 17, 15362) < 0 ||
+	    set_timing_regval_ps(&actim_ctrla, 18, 21, 40967) < 0 ||
+	    set_timing_regval_ps(&actim_ctrla, 22, 26, 56330) < 0 ||
+	    set_timing_regval_ps(&actim_ctrla, 27, 31, 138266) < 0 ||
+	    set_timing_regval_ps(&actim_ctrlb, 0, 7, 204839) < 0 ||
+	    set_timing_regval(&actim_ctrlb, 8, 10, 2) < 0 ||
+	    set_timing_regval(&actim_ctrlb, 12, 14, 4) < 0 ||
+	    set_timing_regval(&actim_ctrlb, 16, 17, 2) < 0 )
+		return -1;
+
+	rfr = 7720 * ps_to_ticks(1000000) / 1000;
+
+	if (rfr > 65535 + 50)
+		rfr = 65535;
+	else
+		rfr -= 50;
+
+	rfr <<= 8;
+
+	__raw_writel(actim_ctrla, SDRC_ACTIM_CTRLA_0);
+	__raw_writel(actim_ctrlb, SDRC_ACTIM_CTRLB_0);
+	__raw_writel(actim_ctrla, SDRC_ACTIM_CTRLA_1);
+	__raw_writel(actim_ctrlb, SDRC_ACTIM_CTRLB_1);
+	__raw_writel(rfr, SDRC_RFR_CTRL_0);
+	__raw_writel(rfr, SDRC_RFR_CTRL_1);
+	__raw_writel(853, SDRC_POWER);
+	__raw_writel(0x7F00001Au, SDRC_DLLA_CTRL);
+
+	delay(10);
+
+	__raw_writel(__raw_readl(SDRC_DLLA_CTRL) & 0xFFFFFFEF, SDRC_DLLA_CTRL);
+
+	delay(10);
+
+	while (!(__raw_readl(SDRC_DLLA_STATUS) & 4));
+
+	__raw_writel(CMD_CKE_LOW, SDRC_MANUAL_0);
+	__raw_writel(CMD_CKE_LOW, SDRC_MANUAL_1);
+
+	delay(200);
+
+	__raw_writel(CMD_PRECHARGE, SDRC_MANUAL_0);
+	__raw_writel(CMD_PRECHARGE, SDRC_MANUAL_1);
+
+	__raw_writel(CMD_AUTOREFRESH, SDRC_MANUAL_0);
+	__raw_writel(CMD_AUTOREFRESH, SDRC_MANUAL_0);
+	__raw_writel(CMD_NOP, SDRC_MANUAL_0);
+	__raw_writel(CMD_NOP, SDRC_MANUAL_0);
+
+	__raw_writel(CMD_AUTOREFRESH, SDRC_MANUAL_1);
+	__raw_writel(CMD_AUTOREFRESH, SDRC_MANUAL_1);
+	__raw_writel(CMD_NOP, SDRC_MANUAL_1);
+	__raw_writel(CMD_NOP, SDRC_MANUAL_1);
+
+	__raw_writel(50, SDRC_MR_0);
+	__raw_writel(50, SDRC_MR_1);
+	__raw_writel(32, SDRC_EMR2_0);
+	__raw_writel(32, SDRC_EMR2_1);
+	__raw_writel(__raw_readl(SDRC_POWER) | 8, SDRC_POWER);
+
+	auto_rfr = (__raw_readl(SDRC_RFR_CTRL_0) & 0xFFFFFFFC) | 1;
+	__raw_writel(auto_rfr, SDRC_RFR_CTRL_0);
+	__raw_writel(auto_rfr, SDRC_RFR_CTRL_0);
+
+	return 0;
+}
 
 /*********************************************************************
  * config_3430sdram_ddr() - Init DDR on 3430SDP dev board.
@@ -620,16 +786,9 @@ void config_3430sdram_ddr(void)
 
 	switch (identify_real_ddr()) {
 		case SAMSUNG_MCP:
-			__raw_writel(0x4, SDRC_CS_CFG);
-			__raw_writel(0x3690019, SDRC_MCFG_0);
-			__raw_writel(0x3690019, SDRC_MCFG_1);
-			__raw_writel(MICRON_V_ACTIMA_200, SDRC_ACTIM_CTRLA_0);
-			__raw_writel(MICRON_V_ACTIMB_200, SDRC_ACTIM_CTRLB_0);
-			__raw_writel(MICRON_V_ACTIMA_200, SDRC_ACTIM_CTRLA_1);
-			__raw_writel(MICRON_V_ACTIMB_200, SDRC_ACTIM_CTRLB_1);
-			__raw_writel(SDP_3430_SDRC_RFR_CTRL_200MHz, SDRC_RFR_CTRL_0);
-			__raw_writel(SDP_3430_SDRC_RFR_CTRL_200MHz, SDRC_RFR_CTRL_1);
-			break;
+			if (config_samsung_mcp_ddr())
+				printf("DDR initialization failed\n");
+			return;
 		case NUMONYX_MCP:
 			__raw_writel(0x4, SDRC_CS_CFG); /* 512MB/bank @ 200 MHz */
 			__raw_writel(SDP_SDRC_MDCFG_0_DDR_NUMONYX_XM, SDRC_MCFG_0);
