@@ -23,6 +23,8 @@
 
 #include <common.h>
 
+#ifdef CFG_ONENAND
+
 #include <asm/string.h>
 
 #include "onenand_regs.h"
@@ -236,3 +238,4 @@ int onenand_read_block(unsigned char *buf, ulong block)
 	return 0;
 }
 
+#endif

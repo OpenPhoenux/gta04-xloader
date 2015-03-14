@@ -1179,6 +1179,7 @@ int misc_init_r(void)
 		case DDR_ONLY: printf("DDR 128MB/bank\n"); break;
 		default: printf("unknown assuming 128MB/bank\n"); break;
 	}
+#ifdef CONFIG_NAND
 	if (get_mem_type() == GPMC_NAND) {
 		int	mfr, id;
 		extern int nand_readid(int *mfr, int *id);
@@ -1186,7 +1187,7 @@ int misc_init_r(void)
 		nand_readid(&mfr, &id);
 		printf("NAND: mfr=0x%02x id=0x%02x\n", mfr, id);
 	}
-
+#endif
 	return 0;
 }
 

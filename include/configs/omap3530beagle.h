@@ -83,7 +83,9 @@
 
 /* Enable the below macro if NAND boot support is required */
 #define CONFIG_NAND 1
+#ifdef CONFIG_NAND
 #define CFG_ONENAND 1
+#endif
 
 #define NAND_BASE_ADR	NAND_BASE
 #define ONENAND_BASE	ONENAND_MAP
