@@ -766,7 +766,7 @@ static int config_samsung_mcp_ddr(void)
 
 	auto_rfr = (__raw_readl(SDRC_RFR_CTRL_0) & 0xFFFFFFFC) | 1;
 	__raw_writel(auto_rfr, SDRC_RFR_CTRL_0);
-	__raw_writel(auto_rfr, SDRC_RFR_CTRL_0);
+	__raw_writel(auto_rfr, SDRC_RFR_CTRL_1);
 
 	return 0;
 }
