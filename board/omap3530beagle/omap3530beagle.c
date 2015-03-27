@@ -1500,7 +1500,7 @@ int nand_init(void)
 
 		if (nand_chip()) {
 #ifdef CFG_PRINTF
-			printf("Unsupported Chip!\n");
+			printf("Unsupported NAND Chip!\n");
 #endif
 //			return 1;
 		}
@@ -1524,7 +1524,7 @@ int nand_init(void)
 
 		if (onenand_chip()) {
 #ifdef CFG_PRINTF
-			printf("OneNAND Unsupported !\n");
+			printf("Unsupported OneNAND Chip!\n");
 #endif
 //			return 1;
 		}
