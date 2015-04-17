@@ -116,16 +116,16 @@ onenand_chip()
 
 	if(mf_id == SAMSUNG_MFR_ID) {
 		if (dev_id == KFM1G16Q2A_DEV_ID) {
-			printf("Detected Samsung MuxOneNAND1G Flash \r\n");
+			printf("Detected Samsung MuxOneNAND1G Flash\r\n");
 			return 0;
 		} else if (dev_id == KFN2G16Q2A_DEV_ID) {
-			printf("Detected Samsung MuxOneNAND2G Flash \r\n");
+			printf("Detected Samsung MuxOneNAND2G Flash\r\n");
                         return 0;
 		} else if (dev_id == 80) {
-			printf("Detected Samsung N9 Flash \r\n");
+			printf("Detected Samsung KCE00E00CA A506\r\n");
                         return 0;
 		} else {
-			printf("Detected Samsung OneNAND Flash dev=%u unsupported\r\n", dev_id);
+			printf("Detected Samsung unsupported OneNAND Flash dev=%u\r\n", dev_id);
                         return 1;
 		}
 	} else {
